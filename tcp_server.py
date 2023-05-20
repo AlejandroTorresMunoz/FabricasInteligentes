@@ -5,6 +5,7 @@ import time
 import struct
 from Components import Actuator, Sensor
 from ControlAlgorithms import CheckGenZone # Función para chequear si la zona de generación está libre o no
+import numpy as np
 
 def ControlCinta(df, nombre_cinta):
     # Función para controlar la cinta
@@ -18,7 +19,11 @@ def ActCont(df_sensors, list_name_cat, df_prod):
     # Función para actualizar el valor de conteo de producción de las categorías
     for name_cat in list_name_cat:
         # Para cada nombre de la señal
-        df_prod.loc[df_prod['Nombre'] == name_cat, 'Cont Cat'] = df_sensors.loc[df_sensors['Nombre'] == name_cat].reset_index()['Data'][0]
+        df_prod.loc[df_prod['Nombre'] == name_cat, 'Cont Cat'] = df_sensors.loc[df_sensors['Nombre'] == name_cat].reset_index(drop=True)['Data'][0]
+        df_prod.loc[df_prod['Nombre'] == name_cat, 'NumCycles'] += 1 # Incrementar en 1 el número de loops de comunicaciones
+        if df_prod.loc[df_prod['Nombre'] == name_cat].reset_index(drop=True)['NumCycles'][0] >= df_prod.loc[df_prod['Nombre'] == name_cat].reset_index(drop=True)['NumCyclesToGenerate'][0]:
+            df_prod.loc[df_prod['Nombre'] == name_cat, 'NumCycles'] = 0 # Se resetea el conteo
+            df_prod.loc[df_prod['Nombre'] == name_cat, 'GenObject'] = True # Se indica que se debe generar un objeto de la cateogoría
     return df_prod
 
 def ActRate(df_prod):
@@ -27,11 +32,18 @@ def ActRate(df_prod):
     df_prod['Rate Production'] = df_prod['Cont Cat'] / df_prod['Cont Comm Loops']
     # print("Dentro de la función de ActRate")
     return df_prod
+
+def ActNumCyclesToGenerate(df_prod):
+    # Función para actualizar el número de loops de comunicaciones para los que una categoría debería generar una señal para cumplir con el rate de producción
+    df_prod['NumCyclesToGenerate'] = NUMBER_LOOP_COMM_CHECK_RATE / df_prod['ObjRateProduction']
+    df_prod['NumCyclesToGenerate'] = df_prod['NumCyclesToGenerate'].apply(lambda x: int(x) if np.isfinite(x) else x)
+    print(df_prod.head())
+    return df_prod
     
 # Parámetros Globales
 COMM_PERIOD = 0.1 # Periodicidad de las comunicaciones 
 DEN_MIN_RATE_PROD = 1 # Denominador del número de minutos en el que calcular el rate
-NUMBER_LOOP_COMM_CHECK_RATE = int(int(DEN_MIN_RATE_PROD *(60 / COMM_PERIOD)) / 12) # Número de loops en el que actualizar el rate de producción (cada 2 minutos)
+NUMBER_LOOP_COMM_CHECK_RATE = int(int(DEN_MIN_RATE_PROD *(60 / COMM_PERIOD))) # Número de loops en el que actualizar el rate de producción (cada 2 minutos)
 
 # DataFrame con los datos de los sensores
 data_sensors = {'Nombre' : ['S1', 'S2', 'S3', 'Act_Cinta', 'S_In', 'In_Gen_3', 'Ang_Eje_Desv', 'Vel_Cinta', 'Rot_Base_ABB', 'Rot_L1_ABB', 'Rot_L2_ABB', 'Rot_L3_ABB', 'Rot_L4_ABB', 'Rot_L5_ABB', 'Cont_Cat_3', 'Cont_Cat_2', 'Cont_Cat_1'],
@@ -58,9 +70,15 @@ data_production = {'Category' : [3, 2, 1], # Número de la categoría
                    'Cont Cat' : [0.0, 0.0, 0.0], # Contador de la categoría
                    'Cont Comm Loops' : [0, 0, 0], # Contador de los loops de comunicaciones
                    'Rate Production' : [0.0, 0.0, 0.0], # Rate de producción de la categoría
+                   'ObjRateProduction' : [5.0 , 0.0, 0.0], # Rate objetivo de producción de las categorías
+                   'NumCyclesToGenerate' : [0, 0, 0], # Número de ciclos tras los que generar un objeto de la categoría en Python
+                   'NumCycles' : [0, 0, 0], # Número de ciclos de la categoría
+                   'GenObject' : [False, False, False], # Flags para establecer si se debe generar un objeto o no de la categoría correspondiente
                    'Units' : ['Prod/('+str(DEN_MIN_RATE_PROD)+' min)', 'Prod/('+str(DEN_MIN_RATE_PROD)+' min)', 'Prod/('+str(DEN_MIN_RATE_PROD)+' min)'] # Unidad de medida de la producción
                 } 
 df_production = pd.DataFrame(data_production) # DataFrame con los datos de producción
+df_production = ActNumCyclesToGenerate(df_production) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
+
 
 '''
 Parámetros de control para la producción de las distintas categorías : 
@@ -91,13 +109,20 @@ sock.bind(server_address)
 
 # Buscando conexiones entrantes
 sock.listen(1)
-first_loop = False
 
 
 '''
 Variables for the control algorithms
 '''
 GenObjectCat3 = False
+IsGoingToGenerate = 0 # Variable para indicar la categoría de la próxima categoría que se va a generar
+NumberBeingGenerated = 0 # Variable para indicar la categoría que se está generando
+'''
+Es de estilo mutex. El valor de la variable puede tener dos valores : 
+    - Valor 0 : Ninguna categoría ha solicitado generar una pieza
+    - Valor distinto de 0 : Una categoría, que será el valor de la variable, está pendiente de generar una pieza. Por lo tanto, si otra categoría intenta generar una pieza deberá permanecer a la espera
+    
+'''
 
 while True: 
     # Espera para conectar
@@ -123,55 +148,10 @@ while True:
             '''
             # Se guardan los datos del array de datos en bits 
             df_sensors['Data'] = df_sensors['DataStructs'].apply(lambda obj : obj.GetValue(data))
-            # print(df_sensors.head(20))
             
-            '''
-            Implementación de control y actualización de dataframe de actuadores --> df_actuators
-            '''
-            # Implementación de algoritmo de control y actualización del DataFrame de los actuadores
+            # Obtención de los valores de los sensores
+            SensorZonaGeneracion = Sensor.GetValueSensorByName(df_sensors, 'S_In') # Valor del sensor de la zona de generación de objetos
             
-            if cont_loop_comm % 30 == 0:
-                GenObjectCat3 = not GenObjectCat3 # Invertir el valor de la señal
-            if GenObjectCat3:
-                df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_3')
-            else:
-                df_actuators = Actuator.ResetGen(df_actuators, 'Gen_3')
-            '''
-            if cont_loop_comm == NUMBER_LOOP_COMM_CHECK_RATE:
-                print("")
-                print("")
-                print("Se setea la señal para generar un objeto")
-                if GenObjectCat3 == False:
-                    print("Activando valores")
-                    GenObjectCat3 = True # Se marca que se debe generar un objeto de la categoría
-                    df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_3')
-                    print(df_actuators.head())
-                else:
-                    GenObjectCat3 = False
-                    print("Reseteando valores")
-                    df_actuators = Actuator.ResetGen(df_actuators, 'Gen_3')
-                    print(df_actuators.head())
-            '''            
-                
-            
-            '''
-            if(not Sensor.GetValueSensorByName(df_sensors, 'S_In') and (cont_loop_comm == int(NUMBER_LOOP_COMM_CHECK_RATE/60))):
-            
-                df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_3')
-            else:
-                df_actuators = Actuator.ResetGen(df_actuators, 'Gen_3')     
-            '''
-            # Lectura del DataFrame de los actuadores para la generación del mensaje que se envía
-            data_act = Actuator.GetMessageActuators(df_actuators, 16) 
-            #print(df_actuators.head())
-            
-            if data:
-                # print(type(data))
-                print(data_act)
-                connection.sendall(data_act)
-            else:
-                print('Datos inexistentes desde', client_address)
-                break
             
             '''
             Implementación de actualización de los rates de producción --> df_production
@@ -182,10 +162,46 @@ while True:
             if cont_loop_comm == NUMBER_LOOP_COMM_CHECK_RATE: # --> Cada minuto
                 # Si se deben actualizar los valores de rate production
                 cont_loop_comm = 0 # Resetear el conteo de los loops de comunicaciones
-                print("Reseteando contador")
                 df_production['Cont Comm Loops'] += 1 # Incremento en 1 el contador de chequeos
                 df_production = ActRate(df_prod=df_production) # Actualización de los rates de producción
-            first_loop = True
+                # Actualización del número de loops tras los que generar una señal de generación de objeto en Python
+                df_production = ActNumCyclesToGenerate(df_production) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
+                print(df_production.head())
+            '''
+            Implementación de control y actualización de dataframe de actuadores --> df_actuators
+            '''
+            # Implementación de algoritmo de control y actualización del DataFrame de los actuadores
+            
+            # Actualización de señales de generación en función de las indicaciones de producción
+            index_row = df_actuators.loc[df_actuators['Nombre'] == 'Gen_3'].index[0]
+            df_actuators.loc[index_row, 'Data'] = df_production.loc[df_production['Nombre'] == 'Cont_Cat_3']['GenObject'][0]
+            
+            # Se chequea de manera global que se deba generar un objeto y si se debe generar el objeto y la zona de generación está libre
+            if IsGoingToGenerate == 3 and not SensorZonaGeneracion: 
+                df_actuators = Actuator.ResetGen(df_actuators, 'Gen_3') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
+                IsGoingToGenerate = 0 # Se resetea la variable de generación
+                df_production.loc[df_production['Nombre'] == 'Cont_Cat_3', 'GenObject'] = False # Se resetea la flag para indicar que se genere un objeto de la categoría
+            # Algoritmo de control de la categoría 3
+            if df_production.loc[df_production['Nombre'] == 'Cont_Cat_3', 'GenObject'].reset_index(drop=True)[0]:
+                # Si se ha marcado que se debe generar una categoría
+                if IsGoingToGenerate == 0:
+                    # Si no está reservado el valor de generación a otra categoría
+                    IsGoingToGenerate = 3 # Se establece el valor de generación a la categoría 3
+                    df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_3') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
+                    
+                    
+                    
+            # Lectura del DataFrame de los actuadores para la generación del mensaje que se envía
+            data_act = Actuator.GetMessageActuators(df_actuators, 16) 
+            #print(df_actuators.head())
+            
+            if data:
+                # print(type(data))
+                connection.sendall(data_act)
+            else:
+                print('Datos inexistentes desde', client_address)
+                break
+            
 
     except KeyboardInterrupt:
         # Finalización del programa

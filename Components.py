@@ -58,10 +58,6 @@ class Actuator:
         # Estructura para almacenar el valor de un actuador booleano --> 1 bit
         def __init__(self, bit_dir, byte_dir, value, name_actuator):
             self.value = value # Valor del actuador
-            print("Creando el actuador Booleano : ")
-            print(name_actuator)
-            print("bit_dir : "+str(bit_dir))
-            print("byte_dir : "+str(byte_dir))
             self.dir_mem = DirMem(bit_dir, byte_dir, length_bits=1) # Dirección de memoria donde se encuentra el dato
         def SetValue(self, value):
             # Función para establecer el valor

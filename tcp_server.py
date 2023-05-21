@@ -41,7 +41,7 @@ def ActRate(df_prod):
     # print("Dentro de la función de ActRate")
     return df_prod
 
-def ActNumCyclesToGenerate(df_prod, df_act, df_sens):
+def ActNumCyclesToGenerate(df_prod, df_act, df_sens, VelRotAxis3, VelRotAxis2):
     # Función para actualizar el número de loops de comunicaciones para los que una categoría debería generar una señal para cumplir con el rate de producción
     NewPeriodCategories = NUMBER_LOOP_COMM_CHECK_RATE / df_prod['ObjRateProduction']
     NewPeriodCategories = NewPeriodCategories.apply(lambda x: int(x) if np.isfinite(x) else x)
@@ -50,33 +50,63 @@ def ActNumCyclesToGenerate(df_prod, df_act, df_sens):
         # Para cada fila del DataFrame de producción
         if index == 0 :
             # Para la categoría 3
-            if NewPeriodCategories[index] < LIM_NUM_CYCLES_TO_GENERATE:
-                # En el caso de que el período de generación de objetos se estableciera por debajo del límite
-                VelRotAxis3 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
-                if VelRotAxis3 > LIM_VEL_EJE_DESV_MAX:
-                    VelRotAxis3 = LIM_VEL_EJE_DESV_MAX
+            if df_prod['Rate Production'][index] < df_prod['ObjRateProduction'][index]:
+                # En el caso de que la producción sea inferior al objetivo
+                if NewPeriodCategories[index] < LIM_NUM_CYCLES_TO_GENERATE:
+                    # En el caso de que el período de generación de objetos se estableciera por debajo del límite
+                    VelRotAxis3 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
+                    if VelRotAxis3 > LIM_VEL_EJE_DESV_MAX:
+                        VelRotAxis3 = LIM_VEL_EJE_DESV_MAX
             else:
-                # En el caso de que el período de generación de los objetos esté por debajo del límite
-                VelRotAxis3 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
-                if VelRotAxis3 < LIM_VEL_EJE_DESV_MIN:
-                    VelRotAxis3 = LIM_VEL_EJE_DESV_MIN
-                
+                # En el caso de que la producción sea superior al objetivo
+                if NewPeriodCategories[index] > 3*LIM_NUM_CYCLES_TO_GENERATE:
+                    VelRotAxis3 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
+                    if VelRotAxis3 < LIM_VEL_EJE_DESV_MIN:
+                        VelRotAxis3 = LIM_VEL_EJE_DESV_MIN
+        elif index == 1:
+            # Para la categoría 2
+            if df_prod['Rate Production'][index] < df_prod['ObjRateProduction'][index]:
+                # En el caso de que la producción sea inferior al objetivo
+                if NewPeriodCategories[index] < LIM_NUM_CYCLES_TO_GENERATE:
+                    # En el caso de que el período de generación de objetos se estableciera por debajo del límite
+                    VelRotAxis2 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
+                    if VelRotAxis2 > LIM_VEL_EJE_DESV_MAX:
+                        VelRotAxis2 = LIM_VEL_EJE_DESV_MAX
+            else:
+                # En el caso de que la producción sea superior al objetivo
+                if NewPeriodCategories[index] > 3*LIM_NUM_CYCLES_TO_GENERATE:
+                    VelRotAxis2 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
+                    if VelRotAxis2 < LIM_VEL_EJE_DESV_MIN:
+                        VelRotAxis2 = LIM_VEL_EJE_DESV_MIN
+                    
     NewPeriodCategories = NewPeriodCategories.clip(lower = LIM_NUM_CYCLES_TO_GENERATE) # Establecer el límite mínimo del período en el que enviar una nueva señal de generación
     df_prod['NumCyclesToGenerate'] = NewPeriodCategories # Se carga en el DataFrame los valores de período con el límite ya checkeado
     
     # Actualización del DataFrame de los actuadores
     index_row = df_act.loc[df_act['Nombre'] == "Vel_Eje_Desv"].index[0]
-    df_act.loc[index_row, 'Data'] = VelRotAxis3
+    print("VelRotAxis3 : "+str(VelRotAxis3))
+    print("VelRotAxis2 : "+str(VelRotAxis2))
+    df_act.loc[index_row, 'Data'] = (VelRotAxis3 + VelRotAxis2) / 2
     
-    return df_prod, df_act
+    return df_prod, df_act, VelRotAxis3, VelRotAxis2
 
 def GetNumCyclesToGenerateCat(df_prod, name_cat):
     # Función para obtener el período de generación de objetos de una categoría dada
     return df_prod.loc[df_prod["Nombre"] == name_cat]["NumCyclesToGenerate"].reset_index(drop=True)[0]
     
+    
+'''
+Variables for the control algorithms
+'''
+GenerationZoneOccupied = False # Variable booleana para indicar si la zona de generación está ocupada. Su valor se rige por los dos sensores de la zona de generación
+IsGoingToGenerate = 0 # Variable para indicar la categoría de la próxima categoría que se va a generar
+NumberBeingGenerated = 0 # Variable para indicar la categoría que se está generando
+VelRotAxis3 = 30 # Variable para indicar la velocidad de giro del eje de rotación establecido por la categoría 3
+VelRotAxis2 = 30 # Variable para indicar la velocidad de giro del eje de rotación establecido por la categoría 2
+
 
 # DataFrame con los datos de los sensores
-data_sensors = {'Nombre' : ['S1', 'S2', 'S3', 'Act_Cinta', 'S_In', 'In_Gen_3', 'Ang_Eje_Desv', 'Vel_Cinta', 'Rot_Base_ABB', 'Rot_L1_ABB', 'Rot_L2_ABB', 'Rot_L3_ABB', 'Rot_L4_ABB', 'Rot_L5_ABB', 'Cont_Cat_3', 'Cont_Cat_2', 'Cont_Cat_1', 'Vel_Eje_Desv'],
+data_sensors = {'Nombre' : ['S1', 'S2', 'S3', 'Act_Cinta', 'S_In', 'S_In_2', 'Ang_Eje_Desv', 'Vel_Cinta', 'Rot_Base_ABB', 'Rot_L1_ABB', 'Rot_L2_ABB', 'Rot_L3_ABB', 'Rot_L4_ABB', 'Rot_L5_ABB', 'Cont_Cat_3', 'Cont_Cat_2', 'Cont_Cat_1', 'Vel_Eje_Desv'],
                 'Type' : ['Boolean', 'Boolean', 'Boolean', 'Boolean', 'Boolean', 'Boolean', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Int', 'Int', 'Int', 'Real'],
                 'Dir.Mem' : ['0.0', '0.1', '0.2', '0.3', '0.4', '0.5', '4.0', '8.0', '12.0', '16.0', '20.0', '24.0', '28.0', '32.0', '36.0', '38.0', '40.0', '42.0'],
                 'Data' : [False, False, False, False, False, False, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -100,14 +130,14 @@ data_production = {'Category' : [3, 2, 1], # Número de la categoría
                    'Cont Cat' : [0.0, 0.0, 0.0], # Contador de la categoría
                    'Cont Comm Loops' : [0, 0, 0], # Contador de los loops de comunicaciones
                    'Rate Production' : [0.0, 0.0, 0.0], # Rate de producción de la categoría
-                   'ObjRateProduction' : [15.0 , 0.0, 0.0], # Rate objetivo de producción de las categorías
+                   'ObjRateProduction' : [5.0 , 2.0, 0.0], # Rate objetivo de producción de las categorías
                    'NumCyclesToGenerate' : [0, 0, 0], # Número de ciclos tras los que generar un objeto de la categoría en Python
                    'NumCycles' : [0, 0, 0], # Número de ciclos de la categoría
                    'GenObject' : [False, False, False], # Flags para establecer si se debe generar un objeto o no de la categoría correspondiente
                    'Units' : ['Prod/('+str(DEN_MIN_RATE_PROD)+' min)', 'Prod/('+str(DEN_MIN_RATE_PROD)+' min)', 'Prod/('+str(DEN_MIN_RATE_PROD)+' min)'] # Unidad de medida de la producción
                 } 
 df_production = pd.DataFrame(data_production) # DataFrame con los datos de producción
-df_production, df_actuators = ActNumCyclesToGenerate(df_production, df_actuators, df_sensors) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
+df_production, df_actuators, VelRotAxis3, VelRotAxis2 = ActNumCyclesToGenerate(df_production, df_actuators, df_sensors, VelRotAxis3, VelRotAxis2) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
 
 
 '''
@@ -141,18 +171,9 @@ sock.bind(server_address)
 sock.listen(1)
 
 
-'''
-Variables for the control algorithms
-'''
-GenObjectCat3 = False
-IsGoingToGenerate = 0 # Variable para indicar la categoría de la próxima categoría que se va a generar
-NumberBeingGenerated = 0 # Variable para indicar la categoría que se está generando
-VelRotAxis3 = 30 # Variable para indicar la velocidad de giro del eje de rotación establecido por la categoría 3
-VelRotAxis2 = 0 # Variable para indicar la velocidad de giro del eje de rotación establecido por la categoría 2
-
 # Se establece el valor de giro del eje de desviación
 index_row = df_actuators.loc[df_actuators['Nombre'] == "Vel_Eje_Desv"].index[0]
-df_actuators.loc[index_row, 'Data'] = VelRotAxis3
+df_actuators.loc[index_row, 'Data'] = (VelRotAxis3 + VelRotAxis2) / 2
 '''
 Es de estilo mutex. El valor de la variable puede tener dos valores : 
     - Valor 0 : Ninguna categoría ha solicitado generar una pieza
@@ -187,7 +208,13 @@ while True:
             
             # Obtención de los valores de los sensores
             SensorZonaGeneracion = Sensor.GetValueSensorByName(df_sensors, 'S_In') # Valor del sensor de la zona de generación de objetos
-            
+            SensorZonaGeneracion2 = Sensor.GetValueSensorByName(df_sensors, 'S_In_2') # Valor del sensor de abandono de la zona de generación de objetos
+            if SensorZonaGeneracion:
+                # Si el sensor de la zona de generación se activa, se marca la zona de generación como ocupada
+                GenerationZoneOccupied = True # Se marca la zona como ocupada
+            if SensorZonaGeneracion2 and not SensorZonaGeneracion:
+                # Si pasa un brownie por el sensor de abandona de la zona de generación, y no hay objeto sobre la zona de generación
+                GenerationZoneOccupied = False # Se marca la zona como libre
             
             '''
             Implementación de actualización de los rates de producción --> df_production
@@ -201,7 +228,11 @@ while True:
                 df_production['Cont Comm Loops'] += 1 # Incremento en 1 el contador de chequeos
                 df_production = ActRate(df_prod=df_production) # Actualización de los rates de producción
                 # Actualización del número de loops tras los que generar una señal de generación de objeto en Python
-                df_production, df_actuators = ActNumCyclesToGenerate(df_production, df_actuators, df_sensors) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
+                df_production, df_actuators, VelRotAxis3, VelRotAxis2 = ActNumCyclesToGenerate(df_production, df_actuators, df_sensors, VelRotAxis3, VelRotAxis2) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
+                print("Actualización de los valores de los actuadores realizada")
+                print(df_actuators.head())
+                print("Los valores de producción son : ")
+                print(df_production.head())
                 
                 
                 
@@ -210,15 +241,28 @@ while True:
             '''
             # Implementación de algoritmo de control y actualización del DataFrame de los actuadores
             
-            # Actualización de señales de generación en función de las indicaciones de producción
+            # Actualización de señales de generación en función de las indicaciones de producción 
+            # Para la categoría 3
             index_row = df_actuators.loc[df_actuators['Nombre'] == 'Gen_3'].index[0]
-            df_actuators.loc[index_row, 'Data'] = df_production.loc[df_production['Nombre'] == 'Cont_Cat_3']['GenObject'][0]
+            df_actuators.loc[index_row, 'Data'] = df_production.loc[df_production['Nombre'] == 'Cont_Cat_3']['GenObject'].reset_index(drop=True)[0]
+            # Para la categoría 2
+            index_row = df_actuators.loc[df_actuators['Nombre'] == 'Gen_2'].index[0]
+            df_actuators.loc[index_row, 'Data'] = df_production.loc[df_production['Nombre'] == 'Cont_Cat_2']['GenObject'].reset_index(drop=True)[0]
+            
             
             # Se chequea de manera global que se deba generar un objeto y si se debe generar el objeto y la zona de generación está libre
-            if IsGoingToGenerate == 3 and not SensorZonaGeneracion: 
+            if IsGoingToGenerate == 3 and not GenerationZoneOccupied: 
                 df_actuators = Actuator.ResetGen(df_actuators, 'Gen_3') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
-                IsGoingToGenerate = 0 # Se resetea la variable de generación
+                # IsGoingToGenerate = 0 # Se resetea la variable de generación
                 df_production.loc[df_production['Nombre'] == 'Cont_Cat_3', 'GenObject'] = False # Se resetea la flag para indicar que se genere un objeto de la categoría
+            elif IsGoingToGenerate == 2 and not GenerationZoneOccupied:
+                df_actuators = Actuator.ResetGen(df_actuators, 'Gen_2') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
+                # IsGoingToGenerate = 0 # Se resetea la variable de generación
+                df_production.loc[df_production['Nombre'] == 'Cont_Cat_2', 'GenObject'] = False # Se resetea la flag para indicar que se genere un objeto de la categoría
+                
+            # Reseteo de la variable de generación
+            if IsGoingToGenerate != 0 and SensorZonaGeneracion:
+                IsGoingToGenerate = 0
                 
             # Algoritmo de control de la categoría 3
             if df_production.loc[df_production['Nombre'] == 'Cont_Cat_3', 'GenObject'].reset_index(drop=True)[0]:
@@ -227,8 +271,12 @@ while True:
                     # Si no está reservado el valor de generación a otra categoría
                     IsGoingToGenerate = 3 # Se establece el valor de generación a la categoría 3
                     df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_3') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
-                    
-                    
+            if df_production.loc[df_production['Nombre'] == 'Cont_Cat_2', 'GenObject'].reset_index(drop=True)[0]:
+                # Si se ha marcado que se debege generar una categoría
+                if IsGoingToGenerate == 0:
+                    # Si no se ha reservado el valor de generación de otra categoría
+                    IsGoingToGenerate = 2 # Se establece el valor de generación a la categoría 2
+                    df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_2') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada        
                     
             # Lectura del DataFrame de los actuadores para la generación del mensaje que se envía
             data_act = Actuator.GetMessageActuators(df_actuators, 16) 

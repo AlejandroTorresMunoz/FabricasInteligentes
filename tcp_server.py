@@ -4,32 +4,9 @@ import pandas as pd
 import time
 import struct
 from Components import Actuator, Sensor
-from ControlAlgorithms import CategoryControlAlgorithm, UpdateActProd
+from ControlAlgorithms import CategoryControlAlgorithm, UpdateActProd, ActRateProd, ActContProd, UpdateRateObj
 import numpy as np
 from tcp_server_parameters import COMM_PERIOD, DEN_MIN_RATE_PROD, NUMBER_LOOP_COMM_CHECK_RATE, LIM_NUM_CYCLES_TO_GENERATE, LIM_VEL_EJE_DESV_MAX, LIM_VEL_EJE_DESV_MIN
-
-    
-def ActCont(df_sensors, list_name_cat, df_prod):
-    # Función para actualizar el valor de conteo de producción de las categorías
-    for name_cat in list_name_cat:
-        # Para cada nombre de la señal
-        df_prod.loc[df_prod['Nombre'] == name_cat, 'Cont Cat'] = df_sensors.loc[df_sensors['Nombre'] == name_cat].reset_index(drop=True)['Data'][0]
-        df_prod.loc[df_prod['Nombre'] == name_cat, 'NumCycles'] += 1 # Incrementar en 1 el número de loops de comunicaciones
-        if df_prod.loc[df_prod['Nombre'] == name_cat].reset_index(drop=True)['NumCycles'][0] >= df_prod.loc[df_prod['Nombre'] == name_cat].reset_index(drop=True)['NumCyclesToGenerate'][0]:
-            df_prod.loc[df_prod['Nombre'] == name_cat, 'NumCycles'] = 0 # Se resetea el conteo
-            df_prod.loc[df_prod['Nombre'] == name_cat, 'GenObject'] = True # Se indica que se debe generar un objeto de la cateogoría
-    return df_prod
-
-def ActRate(df_prod):
-    # Función para actualizar el rate de producción de una categoría dada
-    # print(df_prod)
-    df_prod['Rate Production'] = df_prod['Cont Cat'] / df_prod['Cont Comm Loops']
-    # print("Dentro de la función de ActRate")
-    return df_prod
-
-def GetNumCyclesToGenerateCat(df_prod, name_cat):
-    # Función para obtener el período de generación de objetos de una categoría dada
-    return df_prod.loc[df_prod["Nombre"] == name_cat]["NumCyclesToGenerate"].reset_index(drop=True)[0]
     
     
 '''
@@ -77,6 +54,12 @@ df_production = pd.DataFrame(data_production) # DataFrame con los datos de produ
 df_production, df_actuators, _ , _ = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
 
 
+# DataFrame con los datos objetivos de producción
+data_objective = {'Cat_3' : [5.0, 5.0, 5.0, 7.0, 7.0, 3.0, 3.0],
+                  'Cat_2' : [2.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0],
+                  'Cat_1' : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
+df_objective = pd.DataFrame(data_objective) # DataFrame con los valores de producción objetivos
+df_production, df_objective = UpdateRateObj(df_production, df_objective)
 '''
 Parámetros de control para la producción de las distintas categorías : 
     - Categoría 3 : 
@@ -106,16 +89,6 @@ sock.bind(server_address)
 # Buscando conexiones entrantes
 sock.listen(1)
 
-
-# Se establece el valor de giro del eje de desviación
-index_row = df_actuators.loc[df_actuators['Nombre'] == "Vel_Eje_Desv"].index[0]
-df_actuators.loc[index_row, 'Data'] = (VelRotAxis3 + VelRotAxis2) / 2
-'''
-Es de estilo mutex. El valor de la variable puede tener dos valores : 
-    - Valor 0 : Ninguna categoría ha solicitado generar una pieza
-    - Valor distinto de 0 : Una categoría, que será el valor de la variable, está pendiente de generar una pieza. Por lo tanto, si otra categoría intenta generar una pieza deberá permanecer a la espera
-    
-'''
 
 while True: 
     # Espera para conectar
@@ -156,14 +129,15 @@ while True:
             Implementación de actualización de los rates de producción y modificación de los valores a enviar de actuación--> df_production, df_actuators 
             '''
             # Actualización de los DataFrames de producción 
-            df_production = ActCont(df_sensors = df_sensors, list_name_cat = ['Cont_Cat_3', 'Cont_Cat_2', 'Cont_Cat_1'], df_prod = df_production) # Se actualiza el DataFrame de producción, en cuanto a los valores de conteo
+            df_production = ActContProd(df_sensors = df_sensors, list_name_cat = ['Cont_Cat_3', 'Cont_Cat_2', 'Cont_Cat_1'], df_prod = df_production) # Se actualiza el DataFrame de producción, en cuanto a los valores de conteo
             # print(df_production.head())
             if cont_loop_comm == NUMBER_LOOP_COMM_CHECK_RATE: # --> Cada minuto
                 # Si se deben actualizar los valores de rate production
                 cont_loop_comm = 0 # Resetear el conteo de los loops de comunicaciones
                 df_production['Cont Comm Loops'] += 1 # Incremento en 1 el contador de chequeos
-                df_production = ActRate(df_prod=df_production) # Actualización de los rates de producción
+                df_production = ActRateProd(df_prod=df_production) # Actualización de los rates de producción
                 # Actualización del número de loops tras los que generar una señal de generación de objeto en Python
+                df_production, df_objective = UpdateRateObj(df_production, df_objective)
                 df_production, df_actuators, VelRotAxis3, VelRotAxis2 = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
                 print("Actualización de los valores de los actuadores realizada")
                 print(df_actuators.head())

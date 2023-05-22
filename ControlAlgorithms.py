@@ -1,6 +1,7 @@
 from Components import Sensor, Actuator
 # Importado de valores constantes de parámetros
 import numpy as np
+import pandas as pd
 from tcp_server_parameters import COMM_PERIOD, DEN_MIN_RATE_PROD, NUMBER_LOOP_COMM_CHECK_RATE, LIM_NUM_CYCLES_TO_GENERATE, LIM_VEL_EJE_DESV_MAX, LIM_VEL_EJE_DESV_MIN
 
 
@@ -25,6 +26,22 @@ def CategoryControlAlgorithm(IsGoingToGenerate, GenerationZoneOccupied, SensorZo
             df_act = Actuator.ActivateGen(df_act, NameCatDfAct)
         
     return IsGoingToGenerate, df_act, df_prod
+
+def ActRateProd(df_prod):
+    # Función para actualizar el rate de producción de una categoría dada
+    df_prod['Rate Production'] = df_prod['Cont Cat'] / df_prod['Cont Comm Loops']
+    return df_prod
+
+def ActContProd(df_sensors, list_name_cat, df_prod):
+    # Función para actualizar el valor de conteo de producción de las categorías
+    for name_cat in list_name_cat:
+        # Para cada nombre de la señal
+        df_prod.loc[df_prod['Nombre'] == name_cat, 'Cont Cat'] = Sensor.GetValueSensorByName(df_sensors, name_cat)
+        df_prod.loc[df_prod['Nombre'] == name_cat, 'NumCycles'] += 1 # Incrementar en 1 el número de loops de comunicaciones
+        if df_prod.loc[df_prod['Nombre'] == name_cat].reset_index(drop=True)['NumCycles'][0] >= df_prod.loc[df_prod['Nombre'] == name_cat].reset_index(drop=True)['NumCyclesToGenerate'][0]:
+            df_prod.loc[df_prod['Nombre'] == name_cat, 'NumCycles'] = 0 # Se resetea el conteo
+            df_prod.loc[df_prod['Nombre'] == name_cat, 'GenObject'] = True # Se indica que se debe generar un objeto de la cateogoría
+    return df_prod
 
 def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2):
     # Función para actualizar el número de loops de comunicaciones para los que una categoría debería generar una señal para cumplir con el rate de producción
@@ -67,3 +84,11 @@ def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2):
 
     
     return df_prod, df_act, VelRotAxis3, VelRotAxis2
+
+def UpdateRateObj(df_prod, df_obj):
+    # Función para actualizar el rate de producción
+    print("UpdateRateObj")
+    df_prod['ObjRateProduction'] = df_obj.iloc[0].tolist()
+    print(pd.Series(df_obj.iloc[0]))
+    df_obj = df_obj.drop(df_prod.index[0]).reset_index(drop=True)
+    return df_prod, df_obj

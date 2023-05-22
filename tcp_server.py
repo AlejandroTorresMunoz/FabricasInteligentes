@@ -30,10 +30,10 @@ df_sensors = pd.DataFrame(data_sensors) # DataFrame con los datos de los sensore
 df_sensors['DataStructs'] = df_sensors.apply(lambda row : Sensor.CreateDataSensor(row), axis=1)
 
 # DataFrame con los datos de los actuadores
-data_actuators = {'Nombre' : ['Gen_1', 'Gen_2', 'Gen_3', 'Vel_Cinta', 'Vel_Eje_Desv'],
-                  'Type' : ['Boolean', 'Boolean', 'Boolean', 'Real', 'Real'],
-                  'Dir.Mem' : ['0.0', '0.1', '0.2', '4.0', '8.0'],
-                  'Data' : [False, False, False, 200, 60]
+data_actuators = {'Nombre' : ['Gen_1', 'Gen_2', 'Gen_3', 'Vel_Cinta', 'Vel_Eje_Desv', 'Vel_L1', 'Vel_L2', 'Vel_L3', 'Vel_L4', 'Vel_L5', 'Vel_L6'],
+                  'Type' : ['Boolean', 'Boolean', 'Boolean', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real'],
+                  'Dir.Mem' : ['0.0', '0.1', '0.2', '4.0', '8.0','12.0', '16.0', '18.0', '22.0', '26.0', '30.0', '34.0'],
+                  'Data' : [False, False, False, 200, 60, 20, 20, 20, 20, 20, 20]
                   }
 df_actuators = pd.DataFrame(data_actuators) # DataFrame con los datos de los actuadores
 df_actuators['DataStructs'] = df_actuators.apply(lambda row : Actuator.CreateDataActuator(row), axis=1)

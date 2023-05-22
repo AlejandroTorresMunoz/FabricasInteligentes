@@ -4,7 +4,7 @@ import pandas as pd
 import time
 import struct
 from Components import Actuator, Sensor
-from ControlAlgorithms import CheckGenZone # Función para chequear si la zona de generación está libre o no
+from ControlAlgorithms import CategoryControlAlgorithm
 import numpy as np
 
 # Parámetros Globales
@@ -157,7 +157,6 @@ print(df_actuators.head())
 print("El dataframe de producción es : ")
 print(df_production.head())
 
-print(NUMBER_LOOP_COMM_CHECK_RATE)
 
 # Crear TCP/IP socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -243,40 +242,23 @@ while True:
             
             # Actualización de señales de generación en función de las indicaciones de producción 
             # Para la categoría 3
-            index_row = df_actuators.loc[df_actuators['Nombre'] == 'Gen_3'].index[0]
-            df_actuators.loc[index_row, 'Data'] = df_production.loc[df_production['Nombre'] == 'Cont_Cat_3']['GenObject'].reset_index(drop=True)[0]
+            IsGoingToGenerate, df_actuators, df_production = CategoryControlAlgorithm(IsGoingToGenerate = IsGoingToGenerate,
+                                    GenerationZoneOccupied = GenerationZoneOccupied,
+                                    SensorZonaGeneracion = SensorZonaGeneracion,
+                                    NameCatDfAct = "Gen_3",
+                                    df_act = df_actuators,
+                                    NameCatDfProd = "Cont_Cat_3",
+                                    df_prod = df_production
+                                    )
             # Para la categoría 2
-            index_row = df_actuators.loc[df_actuators['Nombre'] == 'Gen_2'].index[0]
-            df_actuators.loc[index_row, 'Data'] = df_production.loc[df_production['Nombre'] == 'Cont_Cat_2']['GenObject'].reset_index(drop=True)[0]
-            
-            
-            # Se chequea de manera global que se deba generar un objeto y si se debe generar el objeto y la zona de generación está libre
-            if IsGoingToGenerate == 3 and not GenerationZoneOccupied: 
-                df_actuators = Actuator.ResetGen(df_actuators, 'Gen_3') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
-                # IsGoingToGenerate = 0 # Se resetea la variable de generación
-                df_production.loc[df_production['Nombre'] == 'Cont_Cat_3', 'GenObject'] = False # Se resetea la flag para indicar que se genere un objeto de la categoría
-            elif IsGoingToGenerate == 2 and not GenerationZoneOccupied:
-                df_actuators = Actuator.ResetGen(df_actuators, 'Gen_2') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
-                # IsGoingToGenerate = 0 # Se resetea la variable de generación
-                df_production.loc[df_production['Nombre'] == 'Cont_Cat_2', 'GenObject'] = False # Se resetea la flag para indicar que se genere un objeto de la categoría
-                
-            # Reseteo de la variable de generación
-            if IsGoingToGenerate != 0 and SensorZonaGeneracion:
-                IsGoingToGenerate = 0
-                
-            # Algoritmo de control de la categoría 3
-            if df_production.loc[df_production['Nombre'] == 'Cont_Cat_3', 'GenObject'].reset_index(drop=True)[0]:
-                # Si se ha marcado que se debe generar una categoría
-                if IsGoingToGenerate == 0:
-                    # Si no está reservado el valor de generación a otra categoría
-                    IsGoingToGenerate = 3 # Se establece el valor de generación a la categoría 3
-                    df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_3') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada
-            if df_production.loc[df_production['Nombre'] == 'Cont_Cat_2', 'GenObject'].reset_index(drop=True)[0]:
-                # Si se ha marcado que se debege generar una categoría
-                if IsGoingToGenerate == 0:
-                    # Si no se ha reservado el valor de generación de otra categoría
-                    IsGoingToGenerate = 2 # Se establece el valor de generación a la categoría 2
-                    df_actuators = Actuator.ActivateGen(df_actuators, 'Gen_2') # Se pone a false la generación --> Se genera el objeto, ya que es por flanco de bajada        
+            IsGoingToGenerate, df_actuators, df_production = CategoryControlAlgorithm(IsGoingToGenerate = IsGoingToGenerate,
+                                    GenerationZoneOccupied = GenerationZoneOccupied,
+                                    SensorZonaGeneracion = SensorZonaGeneracion,
+                                    NameCatDfAct = "Gen_2",
+                                    df_act = df_actuators,
+                                    NameCatDfProd = "Cont_Cat_2",
+                                    df_prod = df_production
+                                    )
                     
             # Lectura del DataFrame de los actuadores para la generación del mensaje que se envía
             data_act = Actuator.GetMessageActuators(df_actuators, 16) 

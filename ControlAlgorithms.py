@@ -1,7 +1,8 @@
 from Components import Sensor, Actuator
 # Importado de valores constantes de parámetros
-from tcp_server import NUMBER_LOOP_COMM_CHECK_RATE, LIM_NUM_CYCLES_TO_GENERATE, LIM_VEL_EJE_DESV_MAX, LIM_VEL_EJE_DESV_MIN
 import numpy as np
+from tcp_server_parameters import COMM_PERIOD, DEN_MIN_RATE_PROD, NUMBER_LOOP_COMM_CHECK_RATE, LIM_NUM_CYCLES_TO_GENERATE, LIM_VEL_EJE_DESV_MAX, LIM_VEL_EJE_DESV_MIN
+
 
 def CategoryControlAlgorithm(IsGoingToGenerate, GenerationZoneOccupied, SensorZonaGeneracion, NameCatDfAct, df_act, NameCatDfProd, df_prod):
     # Función que ejecuta el algoritmo de control de una categoría dada
@@ -25,7 +26,7 @@ def CategoryControlAlgorithm(IsGoingToGenerate, GenerationZoneOccupied, SensorZo
         
     return IsGoingToGenerate, df_act, df_prod
 
-def UpdateActProd(df_prod, df_act, df_sens, VelRotAxis3, VelRotAxis2, NUMBER_LOOP_COMM_CHECK_RATE):
+def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2):
     # Función para actualizar el número de loops de comunicaciones para los que una categoría debería generar una señal para cumplir con el rate de producción
     NewPeriodCategories = NUMBER_LOOP_COMM_CHECK_RATE / df_prod['ObjRateProduction']
     NewPeriodCategories = NewPeriodCategories.apply(lambda x: int(x) if np.isfinite(x) else x)
@@ -34,44 +35,35 @@ def UpdateActProd(df_prod, df_act, df_sens, VelRotAxis3, VelRotAxis2, NUMBER_LOO
         # Para cada fila del DataFrame de producción
         if index == 0 :
             # Para la categoría 3
-            if df_prod['Rate Production'][index] < df_prod['ObjRateProduction'][index]:
+            if df_prod['Rate Production'][index] <= df_prod['ObjRateProduction'][index]-1:
                 # En el caso de que la producción sea inferior al objetivo
-                if NewPeriodCategories[index] < LIM_NUM_CYCLES_TO_GENERATE:
-                    # En el caso de que el período de generación de objetos se estableciera por debajo del límite
-                    VelRotAxis3 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
-                    if VelRotAxis3 > LIM_VEL_EJE_DESV_MAX:
-                        VelRotAxis3 = LIM_VEL_EJE_DESV_MAX
-            else:
+                VelRotAxis3 = VelRotAxis3 + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
+                if VelRotAxis3 > LIM_VEL_EJE_DESV_MAX:
+                    VelRotAxis3 = LIM_VEL_EJE_DESV_MAX
+            elif df_prod['Rate Production'][index] >= df_prod['ObjRateProduction'][index]+1:
                 # En el caso de que la producción sea superior al objetivo
-                if NewPeriodCategories[index] > 3*LIM_NUM_CYCLES_TO_GENERATE:
-                    VelRotAxis3 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
-                    if VelRotAxis3 < LIM_VEL_EJE_DESV_MIN:
-                        VelRotAxis3 = LIM_VEL_EJE_DESV_MIN
+                VelRotAxis3 =VelRotAxis3 - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
+                if VelRotAxis3 < LIM_VEL_EJE_DESV_MIN:
+                    VelRotAxis3 = LIM_VEL_EJE_DESV_MIN
         elif index == 1:
             # Para la categoría 2
-            if df_prod['Rate Production'][index] < df_prod['ObjRateProduction'][index]:
+            if df_prod['Rate Production'][index] <= df_prod['ObjRateProduction'][index]-1:
                 # En el caso de que la producción sea inferior al objetivo
-                if NewPeriodCategories[index] < LIM_NUM_CYCLES_TO_GENERATE:
-                    # En el caso de que el período de generación de objetos se estableciera por debajo del límite
-                    VelRotAxis2 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
-                    if VelRotAxis2 > LIM_VEL_EJE_DESV_MAX:
-                        VelRotAxis2 = LIM_VEL_EJE_DESV_MAX
-            else:
+                VelRotAxis2 =VelRotAxis3 + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
+                if VelRotAxis2 > LIM_VEL_EJE_DESV_MAX:
+                    VelRotAxis2 = LIM_VEL_EJE_DESV_MAX
+            elif df_prod['Rate Production'][index] >= df_prod['ObjRateProduction'][index]+1:
                 # En el caso de que la producción sea superior al objetivo
-                if NewPeriodCategories[index] > 3*LIM_NUM_CYCLES_TO_GENERATE:
-                    VelRotAxis2 = abs(Sensor.GetValueSensorByName(df_sens, 'Vel_Eje_Desv')) - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
-                    if VelRotAxis2 < LIM_VEL_EJE_DESV_MIN:
-                        VelRotAxis2 = LIM_VEL_EJE_DESV_MIN
+                VelRotAxis2 =VelRotAxis3 - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
+                if VelRotAxis2 < LIM_VEL_EJE_DESV_MIN:
                     
+                    VelRotAxis2 = LIM_VEL_EJE_DESV_MIN
     NewPeriodCategories = NewPeriodCategories.clip(lower = LIM_NUM_CYCLES_TO_GENERATE) # Establecer el límite mínimo del período en el que enviar una nueva señal de generación
     df_prod['NumCyclesToGenerate'] = NewPeriodCategories # Se carga en el DataFrame los valores de período con el límite ya checkeado
     
     # Actualización del DataFrame de los actuadores
     index_row = df_act.loc[df_act['Nombre'] == "Vel_Eje_Desv"].index[0]
-    print("VelRotAxis3 : "+str(VelRotAxis3))
-    print("VelRotAxis2 : "+str(VelRotAxis2))
     df_act.loc[index_row, 'Data'] = (VelRotAxis3 + VelRotAxis2) / 2
+
     
     return df_prod, df_act, VelRotAxis3, VelRotAxis2
-        
-    

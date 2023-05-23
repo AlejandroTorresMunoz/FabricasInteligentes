@@ -32,7 +32,7 @@ df_sensors['DataStructs'] = df_sensors.apply(lambda row : Sensor.CreateDataSenso
 # DataFrame con los datos de los actuadores
 data_actuators = {'Nombre' : ['Gen_1', 'Gen_2', 'Gen_3', 'Vel_Cinta', 'Vel_Eje_Desv', 'Vel_L1', 'Vel_L2', 'Vel_L3', 'Vel_L4', 'Vel_L5', 'Vel_L6'],
                   'Type' : ['Boolean', 'Boolean', 'Boolean', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real'],
-                  'Dir.Mem' : ['0.0', '0.1', '0.2', '4.0', '8.0','12.0', '16.0', '18.0', '22.0', '26.0', '30.0', '34.0'],
+                  'Dir.Mem' : ['0.0', '0.1', '0.2', '4.0', '8.0','12.0', '16.0', '20.0', '24.0', '28.0', '32.0'],
                   'Data' : [False, False, False, 200, 60, 20, 20, 20, 20, 20, 20]
                   }
 df_actuators = pd.DataFrame(data_actuators) # DataFrame con los datos de los actuadores
@@ -44,7 +44,7 @@ data_production = {'Category' : [3, 2, 1], # Número de la categoría
                    'Cont Cat' : [0.0, 0.0, 0.0], # Contador de la categoría
                    'Cont Comm Loops' : [0, 0, 0], # Contador de los loops de comunicaciones
                    'Rate Production' : [0.0, 0.0, 0.0], # Rate de producción de la categoría
-                   'ObjRateProduction' : [5.0 , 2.0, 0.0], # Rate objetivo de producción de las categorías
+                   'ObjRateProduction' : [0.0 , 0.0, 10.0], # Rate objetivo de producción de las categorías
                    'NumCyclesToGenerate' : [0, 0, 0], # Número de ciclos tras los que generar un objeto de la categoría en Python
                    'NumCycles' : [0, 0, 0], # Número de ciclos de la categoría
                    'GenObject' : [False, False, False], # Flags para establecer si se debe generar un objeto o no de la categoría correspondiente
@@ -57,7 +57,7 @@ df_production, df_actuators, _ , _ = UpdateActProd(df_production, df_actuators, 
 # DataFrame con los datos objetivos de producción
 data_objective = {'Cat_3' : [5.0, 5.0, 5.0, 7.0, 7.0, 3.0, 3.0],
                   'Cat_2' : [2.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0],
-                  'Cat_1' : [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]}
+                  'Cat_1' : [3.0, 3.0, 2.0, 2.0, 5.0, 5.0, 5.0]}
 df_objective = pd.DataFrame(data_objective) # DataFrame con los valores de producción objetivos
 df_production, df_objective = UpdateRateObj(df_production, df_objective)
 '''
@@ -170,9 +170,18 @@ while True:
                                     NameCatDfProd = "Cont_Cat_2",
                                     df_prod = df_production
                                     )
+            # Para la categoría 1
+            IsGoingToGenerate, df_actuators, df_production = CategoryControlAlgorithm(IsGoingToGenerate = IsGoingToGenerate,
+                                    GenerationZoneOccupied = GenerationZoneOccupied,
+                                    SensorZonaGeneracion = SensorZonaGeneracion,
+                                    NameCatDfAct = "Gen_1",
+                                    df_act = df_actuators,
+                                    NameCatDfProd = "Cont_Cat_1",
+                                    df_prod = df_production
+                                    )
                     
             # Lectura del DataFrame de los actuadores para la generación del mensaje que se envía
-            data_act = Actuator.GetMessageActuators(df_actuators, 16) 
+            data_act = Actuator.GetMessageActuators(df_actuators, 36) 
             #print(df_actuators.head())
             
             if data:

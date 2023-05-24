@@ -22,6 +22,7 @@ def CategoryControlAlgorithm(IsGoingToGenerate, GenerationZoneOccupied, SensorZo
         # Si se ha marcado que se debe generar una cateogría
         if IsGoingToGenerate == 0:
             # Si no está reservado el valor de generación a otra categoría
+            print("Generando objeto de la categoría : "+str(NumberCategory))
             IsGoingToGenerate = NumberCategory # Se reserva el valor con el número de la categoría
             df_act = Actuator.ActivateGen(df_act, NameCatDfAct)
         

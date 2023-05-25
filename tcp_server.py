@@ -55,9 +55,9 @@ df_production, df_actuators, _ , _ = UpdateActProd(df_production, df_actuators, 
 
 
 # DataFrame con los datos objetivos de producción
-data_objective = {'Cat_3' : [5.0, 5.0, 5.0, 7.0, 7.0, 3.0, 3.0],
-                  'Cat_2' : [2.0, 2.0, 3.0, 4.0, 0.0, 0.0, 0.0],
-                  'Cat_1' : [3.0, 3.0, 2.0, 2.0, 5.0, 5.0, 5.0]}
+data_objective = {'Cat_3' : [0.0, 0.0, 0.0, 7.0, 7.0, 3.0, 3.0],
+                  'Cat_2' : [0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0],
+                  'Cat_1' : [5.0, 5.0, 2.0, 2.0, 5.0, 5.0, 5.0]}
 df_objective = pd.DataFrame(data_objective) # DataFrame con los valores de producción objetivos
 df_production, df_objective = UpdateRateObj(df_production, df_objective)
 '''
@@ -138,6 +138,7 @@ while True:
                 df_production = ActRateProd(df_prod=df_production) # Actualización de los rates de producción
                 # Actualización del número de loops tras los que generar una señal de generación de objeto en Python
                 df_production, df_objective = UpdateRateObj(df_production, df_objective)
+                cont_loop_comm = 0
                 df_production, df_actuators, VelRotAxis3, VelRotAxis2 = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
                 print("Actualización de los valores de los actuadores realizada")
                 print(df_actuators.head())

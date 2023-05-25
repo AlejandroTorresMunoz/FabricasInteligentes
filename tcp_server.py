@@ -44,7 +44,7 @@ data_production = {'Category' : [3, 2, 1], # Número de la categoría
                    'Cont Cat' : [0.0, 0.0, 0.0], # Contador de la categoría
                    'Cont Comm Loops' : [0, 0, 0], # Contador de los loops de comunicaciones
                    'Rate Production' : [0.0, 0.0, 0.0], # Rate de producción de la categoría
-                   'ObjRateProduction' : [0.0 , 0.0, 10.0], # Rate objetivo de producción de las categorías
+                   'ObjRateProduction' : [2.0 , 2.0, 2.0], # Rate objetivo de producción de las categorías
                    'NumCyclesToGenerate' : [0, 0, 0], # Número de ciclos tras los que generar un objeto de la categoría en Python
                    'NumCycles' : [0, 0, 0], # Número de ciclos de la categoría
                    'GenObject' : [False, False, False], # Flags para establecer si se debe generar un objeto o no de la categoría correspondiente
@@ -55,9 +55,9 @@ df_production, df_actuators, _ , _ = UpdateActProd(df_production, df_actuators, 
 
 
 # DataFrame con los datos objetivos de producción
-data_objective = {'Cat_3' : [0.0, 0.0, 0.0, 7.0, 7.0, 3.0, 3.0],
-                  'Cat_2' : [0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0],
-                  'Cat_1' : [5.0, 5.0, 2.0, 2.0, 5.0, 5.0, 5.0]}
+data_objective = {'Cat_3' : [2.0, 1.0, 0.0, 4.0, 2.0, 1.0, 2.0],
+                  'Cat_2' : [1.0, 2.0, 4.0, 2.0, 0.0, 2.0, 1.0],
+                  'Cat_1' : [2.0, 1.0, 2.0, 2.0, 1.0, 3.0, 1.0]}
 df_objective = pd.DataFrame(data_objective) # DataFrame con los valores de producción objetivos
 df_production, df_objective = UpdateRateObj(df_production, df_objective)
 '''

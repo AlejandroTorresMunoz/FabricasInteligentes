@@ -22,7 +22,6 @@ VelCinta1 = 200 # Variable para indicar la velocidad de avance de la cinta estab
 VelCinta2 = 200 # Variable para indicar la velocidad de avance de la cinta establecido por la categoría 2
 VelCinta3 = 200 # Variable para indicar la velocidad de avance de la cinta establecido por la categoría 3
 
-
 # DataFrame con los datos de los sensores
 data_sensors = {'Nombre' : ['S1', 'S2', 'S3', 'Act_Cinta', 'S_In', 'S_In_2', 'Ang_Eje_Desv', 'Vel_Cinta', 'Rot_Base_ABB', 'Rot_L1_ABB', 'Rot_L2_ABB', 'Rot_L3_ABB', 'Rot_L4_ABB', 'Rot_L5_ABB', 'Cont_Cat_3', 'Cont_Cat_2', 'Cont_Cat_1', 'Vel_Eje_Desv'],
                 'Type' : ['Boolean', 'Boolean', 'Boolean', 'Boolean', 'Boolean', 'Boolean', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Int', 'Int', 'Int', 'Real'],
@@ -48,7 +47,7 @@ data_production = {'Category' : [3, 2, 1], # Número de la categoría
                    'Cont Cat' : [0.0, 0.0, 0.0], # Contador de la categoría
                    'Cont Comm Loops' : [0, 0, 0], # Contador de los loops de comunicaciones
                    'Rate Production' : [0.0, 0.0, 0.0], # Rate de producción de la categoría
-                   'ObjRateProduction' : [2.0 , 2.0, 10.0], # Rate objetivo de producción de las categorías
+                   'ObjRateProduction' : [3.0 , 3.0, 7.0], # Rate objetivo de producción de las categorías
                    'NumCyclesToGenerate' : [0, 0, 0], # Número de ciclos tras los que generar un objeto de la categoría en Python
                    'NumCycles' : [0, 0, 0], # Número de ciclos de la categoría
                    'GenObject' : [False, False, False], # Flags para establecer si se debe generar un objeto o no de la categoría correspondiente
@@ -59,9 +58,9 @@ df_production, df_actuators, _ , _, _, _, _, _ = UpdateActProd(df_production, df
 
 
 # DataFrame con los datos objetivos de producción
-data_objective = {'Cat_3' : [2.0, 1.0, 0.0, 4.0, 2.0, 1.0, 2.0],
-                  'Cat_2' : [1.0, 2.0, 4.0, 2.0, 0.0, 2.0, 1.0],
-                  'Cat_1' : [2.0, 1.0, 2.0, 2.0, 1.0, 3.0, 1.0]}
+data_objective = {'Cat_3' : [3.0, 4.0, 6.0, 3.0, 2.0, 4.0, 3.0],
+                  'Cat_2' : [3.0, 5.0, 5.0, 2.0, 3.0, 2.0, 5.0],
+                  'Cat_1' : [7.0, 1.0, 3.0, 4.0, 2.0, 3.0, 1.0]}
 df_objective = pd.DataFrame(data_objective) # DataFrame con los valores de producción objetivos
 df_production, df_objective = UpdateRateObj(df_production, df_objective)
 '''
@@ -75,11 +74,11 @@ Parámetros de control para la producción de las distintas categorías :
 '''
 
 print("El DataFrame de sensores final es : ")
-print(df_sensors.head())
+print(df_sensors)
 print("El DataFrame final de actuadores es : ")
-print(df_actuators.head())
+print(df_actuators)
 print("El dataframe de producción es : ")
-print(df_production.head())
+print(df_production)
 
 
 # Crear TCP/IP socket
@@ -145,7 +144,7 @@ while True:
                 cont_loop_comm = 0
                 df_production, df_actuators, VelRotAxis3, VelRotAxis2, VelRotArms, VelCinta1, VelCinta2, VelCinta3 = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2,VelRotArms, VelCinta1, VelCinta2, VelCinta3) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
                 print("Actualización de los valores de los actuadores realizada")
-                print(df_actuators.head())
+                print(df_actuators.head(6))
                 print("Los valores de producción son : ")
                 print(df_production.head())
                 
@@ -184,6 +183,8 @@ while True:
                                     NameCatDfProd = "Cont_Cat_1",
                                     df_prod = df_production
                                     )
+            
+            #print("Generando objeto de la categoría : "+str(IsGoingToGenerate))
                     
             # Lectura del DataFrame de los actuadores para la generación del mensaje que se envía
             data_act = Actuator.GetMessageActuators(df_actuators, 36) 

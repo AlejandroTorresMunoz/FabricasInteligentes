@@ -5,12 +5,14 @@ import pandas as pd
 from tcp_server_parameters import COMM_PERIOD, DEN_MIN_RATE_PROD, NUMBER_LOOP_COMM_CHECK_RATE, LIM_NUM_CYCLES_TO_GENERATE, LIM_VEL_EJE_DESV_MAX, LIM_VEL_EJE_DESV_MIN, LIM_VEL_EJE_ARM_MAX, LIM_VEL_EJE_ARM_MIN, LIM_VEL_CINTA_MAX, LIM_VEL_CINTA_MIN
 
 
+
 def CategoryControlAlgorithm(IsGoingToGenerate, GenerationZoneOccupied, SensorZonaGeneracion, NameCatDfAct, df_act, NameCatDfProd, df_prod):
     # Función que ejecuta el algoritmo de control de una categoría dada
     df_act.loc[df_act['Nombre'] == NameCatDfAct, 'Data'] = df_prod.loc[df_prod['Nombre'] == NameCatDfProd]['GenObject'].reset_index(drop=True)[0]
     NumberCategory = int(NameCatDfAct[-1])
     # Se cheque de manera global que se debe generar un objeto y si se debe genera el objeto y la zona de generación está libre
     if IsGoingToGenerate == NumberCategory and not GenerationZoneOccupied:
+        print("Generando objeto de la categoría : "+str(NumberCategory))
         df_act = Actuator.ResetGen(df_act, 'Gen_'+str(NumberCategory)) # Se pone a false la generación --> Se activa por flanco de bajada la generación de objetos 
         df_prod.loc[df_prod['Nombre'] == NameCatDfProd, 'GenObject'] = False # Se resetea la flag para indicar que se genere un objeto de la categoría
         
@@ -22,7 +24,7 @@ def CategoryControlAlgorithm(IsGoingToGenerate, GenerationZoneOccupied, SensorZo
         # Si se ha marcado que se debe generar una cateogría
         if IsGoingToGenerate == 0:
             # Si no está reservado el valor de generación a otra categoría
-            print("Generando objeto de la categoría : "+str(NumberCategory))
+            # print("Generando objeto de la categoría : "+str(NumberCategory))
             IsGoingToGenerate = NumberCategory # Se reserva el valor con el número de la categoría
             df_act = Actuator.ActivateGen(df_act, NameCatDfAct)
         

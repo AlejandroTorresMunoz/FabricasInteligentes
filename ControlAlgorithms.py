@@ -2,7 +2,7 @@ from Components import Sensor, Actuator
 # Importado de valores constantes de parámetros
 import numpy as np
 import pandas as pd
-from tcp_server_parameters import COMM_PERIOD, DEN_MIN_RATE_PROD, NUMBER_LOOP_COMM_CHECK_RATE, LIM_NUM_CYCLES_TO_GENERATE, LIM_VEL_EJE_DESV_MAX, LIM_VEL_EJE_DESV_MIN
+from tcp_server_parameters import COMM_PERIOD, DEN_MIN_RATE_PROD, NUMBER_LOOP_COMM_CHECK_RATE, LIM_NUM_CYCLES_TO_GENERATE, LIM_VEL_EJE_DESV_MAX, LIM_VEL_EJE_DESV_MIN, LIM_VEL_EJE_ARM_MAX, LIM_VEL_EJE_ARM_MIN, LIM_VEL_CINTA_MAX, LIM_VEL_CINTA_MIN
 
 
 def CategoryControlAlgorithm(IsGoingToGenerate, GenerationZoneOccupied, SensorZonaGeneracion, NameCatDfAct, df_act, NameCatDfProd, df_prod):
@@ -44,7 +44,7 @@ def ActContProd(df_sensors, list_name_cat, df_prod):
             df_prod.loc[df_prod['Nombre'] == name_cat, 'GenObject'] = True # Se indica que se debe generar un objeto de la cateogoría
     return df_prod
 
-def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2):
+def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2, VelRotArms, VelCinta1, VelCinta2, VelCinta3):
     # Función para actualizar el número de loops de comunicaciones para los que una categoría debería generar una señal para cumplir con el rate de producción
     NewPeriodCategories = NUMBER_LOOP_COMM_CHECK_RATE / df_prod['ObjRateProduction']
     NewPeriodCategories = NewPeriodCategories.apply(lambda x: int(x) if np.isfinite(x) else x)
@@ -58,11 +58,19 @@ def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2):
                 VelRotAxis3 = VelRotAxis3 + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
                 if VelRotAxis3 > LIM_VEL_EJE_DESV_MAX:
                     VelRotAxis3 = LIM_VEL_EJE_DESV_MAX
+
+                VelCinta3 = VelCinta3 + 10 # Se incrementa en 10 la velocidad de la cinta
+                if VelCinta3 > LIM_VEL_CINTA_MAX:
+                    VelCinta3 = LIM_VEL_CINTA_MAX
             elif df_prod['Rate Production'][index] >= df_prod['ObjRateProduction'][index]+1:
                 # En el caso de que la producción sea superior al objetivo
                 VelRotAxis3 =VelRotAxis3 - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
                 if VelRotAxis3 < LIM_VEL_EJE_DESV_MIN:
                     VelRotAxis3 = LIM_VEL_EJE_DESV_MIN
+
+                VelCinta3 = VelCinta3 - 10 # Se decrementa en 10 la velocidad de la cinta
+                if VelCinta3 < LIM_VEL_CINTA_MIN:
+                    VelCinta3 = LIM_VEL_CINTA_MIN
         elif index == 1:
             # Para la categoría 2
             if df_prod['Rate Production'][index] <= df_prod['ObjRateProduction'][index]-1:
@@ -70,12 +78,39 @@ def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2):
                 VelRotAxis2 =VelRotAxis3 + 5 # Se incrementa en 5 la velocidad de giro del eje de desviación
                 if VelRotAxis2 > LIM_VEL_EJE_DESV_MAX:
                     VelRotAxis2 = LIM_VEL_EJE_DESV_MAX
+
+                VelCinta2 = VelCinta2 + 10 # Se incrementa en 10 la velocidad de la cinta
+                if VelCinta2 > LIM_VEL_CINTA_MAX:
+                    VelCinta2 = LIM_VEL_CINTA_MAX
             elif df_prod['Rate Production'][index] >= df_prod['ObjRateProduction'][index]+1:
                 # En el caso de que la producción sea superior al objetivo
                 VelRotAxis2 =VelRotAxis3 - 5 # Se decrementa en 5 la velocidad de giro del eje de desviación
                 if VelRotAxis2 < LIM_VEL_EJE_DESV_MIN:
-                    
                     VelRotAxis2 = LIM_VEL_EJE_DESV_MIN
+                
+                VelCinta2 = VelCinta2 - 10 # Se decrementa en 10 la velocidad de la cinta
+                if VelCinta2 < LIM_VEL_CINTA_MIN:
+                    VelCinta2 = LIM_VEL_CINTA_MIN
+        elif index == 2:
+            # Para la categoría 1
+            if df_prod['Rate Production'][index] <= df_prod['ObjRateProduction'][index]-1:
+                # En el caso de que la producción sea inferior al objetivo
+                VelRotArms =VelRotArms + 15 # Se incrementa en 5 la velocidad de giro del eje de desviación
+                if VelRotArms > LIM_VEL_EJE_ARM_MAX:
+                    VelRotArms = LIM_VEL_EJE_ARM_MAX
+
+                VelCinta1 = VelCinta1 + 10 # Se incrementa en 10 la velocidad de la cinta
+                if VelCinta1 > LIM_VEL_CINTA_MAX:
+                    VelCinta1 = LIM_VEL_CINTA_MAX
+            elif df_prod['Rate Production'][index] >= df_prod['ObjRateProduction'][index]+1:
+                # En el caso de que la producción sea superior al objetivo
+                VelRotArms =VelRotArms - 15 # Se decrementa en 5 la velocidad de giro del eje de desviación
+                if VelRotArms < LIM_VEL_EJE_ARM_MIN:
+                    VelRotArms = LIM_VEL_EJE_ARM_MIN
+                VelCinta1 = VelCinta1 - 10 # Se decrementa en 10 la velocidad de la cinta
+                if VelCinta1 < LIM_VEL_CINTA_MIN:
+                    VelCinta1 = LIM_VEL_CINTA_MIN
+
     NewPeriodCategories = NewPeriodCategories.clip(lower = LIM_NUM_CYCLES_TO_GENERATE) # Establecer el límite mínimo del período en el que enviar una nueva señal de generación
     df_prod['NumCyclesToGenerate'] = NewPeriodCategories # Se carga en el DataFrame los valores de período con el límite ya checkeado
     
@@ -83,8 +118,17 @@ def UpdateActProd(df_prod, df_act, VelRotAxis3, VelRotAxis2):
     index_row = df_act.loc[df_act['Nombre'] == "Vel_Eje_Desv"].index[0]
     df_act.loc[index_row, 'Data'] = (VelRotAxis3 + VelRotAxis2) / 2
 
+    index_row = df_act.loc[df_act['Nombre'] == "Vel_Cinta"].index[0]
+    df_act.loc[index_row, 'Data'] = (VelCinta1 + VelCinta2 + VelCinta3) / 3
+
+    names = ["Vel_L" + str(i) for i in range(1, 7)]
+    for name in names:
+        index_row = df_act.loc[df_act['Nombre'] == name].index[0]
+        df_act.loc[index_row, 'Data'] = VelRotArms
     
-    return df_prod, df_act, VelRotAxis3, VelRotAxis2
+
+    
+    return df_prod, df_act, VelRotAxis3, VelRotAxis2, VelRotArms, VelCinta1, VelCinta2, VelCinta3
 
 def UpdateRateObj(df_prod, df_obj):
     # Función para actualizar el rate de producción

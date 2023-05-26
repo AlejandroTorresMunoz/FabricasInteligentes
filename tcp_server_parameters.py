@@ -5,3 +5,7 @@ NUMBER_LOOP_COMM_CHECK_RATE = int(int(DEN_MIN_RATE_PROD *(60 / COMM_PERIOD))) # 
 LIM_NUM_CYCLES_TO_GENERATE = 100 # Límite mínimo con el que enviar una señal de generación de objetos
 LIM_VEL_EJE_DESV_MAX = 90 # Límite máximo en la velocidad del eje de desviación
 LIM_VEL_EJE_DESV_MIN = 30 # Límite mínimo en la velocidad del eje de desviación
+LIM_VEL_EJE_ARM_MAX = 90 # Límite máximo en la velocidad del eje de desviación
+LIM_VEL_EJE_ARM_MIN = 15 # Límite mínimo en la velocidad del eje de desviación
+LIM_VEL_CINTA_MAX = 400 # Límite máximo en la velocidad del eje de desviación
+LIM_VEL_CINTA_MIN = 100 # Límite mínimo en la velocidad del eje de desviación

@@ -17,6 +17,10 @@ IsGoingToGenerate = 0 # Variable para indicar la categoría de la próxima categ
 NumberBeingGenerated = 0 # Variable para indicar la categoría que se está generando
 VelRotAxis3 = 30 # Variable para indicar la velocidad de giro del eje de rotación establecido por la categoría 3
 VelRotAxis2 = 30 # Variable para indicar la velocidad de giro del eje de rotación establecido por la categoría 2
+VelRotArms = 100 # Variable para indicar la velocidad de giro de los ejes de las articulaciones del robot
+VelCinta1 = 200 # Variable para indicar la velocidad de avance de la cinta establecido por la categoría 1
+VelCinta2 = 200 # Variable para indicar la velocidad de avance de la cinta establecido por la categoría 2
+VelCinta3 = 200 # Variable para indicar la velocidad de avance de la cinta establecido por la categoría 3
 
 
 # DataFrame con los datos de los sensores
@@ -33,7 +37,7 @@ df_sensors['DataStructs'] = df_sensors.apply(lambda row : Sensor.CreateDataSenso
 data_actuators = {'Nombre' : ['Gen_1', 'Gen_2', 'Gen_3', 'Vel_Cinta', 'Vel_Eje_Desv', 'Vel_L1', 'Vel_L2', 'Vel_L3', 'Vel_L4', 'Vel_L5', 'Vel_L6'],
                   'Type' : ['Boolean', 'Boolean', 'Boolean', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real', 'Real'],
                   'Dir.Mem' : ['0.0', '0.1', '0.2', '4.0', '8.0','12.0', '16.0', '20.0', '24.0', '28.0', '32.0'],
-                  'Data' : [False, False, False, 200, 60, 20, 20, 20, 20, 20, 20]
+                  'Data' : [False, False, False, 200, 60, 45, 45, 45, 45, 45, 45]
                   }
 df_actuators = pd.DataFrame(data_actuators) # DataFrame con los datos de los actuadores
 df_actuators['DataStructs'] = df_actuators.apply(lambda row : Actuator.CreateDataActuator(row), axis=1)
@@ -44,14 +48,14 @@ data_production = {'Category' : [3, 2, 1], # Número de la categoría
                    'Cont Cat' : [0.0, 0.0, 0.0], # Contador de la categoría
                    'Cont Comm Loops' : [0, 0, 0], # Contador de los loops de comunicaciones
                    'Rate Production' : [0.0, 0.0, 0.0], # Rate de producción de la categoría
-                   'ObjRateProduction' : [2.0 , 2.0, 2.0], # Rate objetivo de producción de las categorías
+                   'ObjRateProduction' : [2.0 , 2.0, 10.0], # Rate objetivo de producción de las categorías
                    'NumCyclesToGenerate' : [0, 0, 0], # Número de ciclos tras los que generar un objeto de la categoría en Python
                    'NumCycles' : [0, 0, 0], # Número de ciclos de la categoría
                    'GenObject' : [False, False, False], # Flags para establecer si se debe generar un objeto o no de la categoría correspondiente
                    'Units' : ['Prod/('+str(DEN_MIN_RATE_PROD)+' min)', 'Prod/('+str(DEN_MIN_RATE_PROD)+' min)', 'Prod/('+str(DEN_MIN_RATE_PROD)+' min)'] # Unidad de medida de la producción
                 } 
 df_production = pd.DataFrame(data_production) # DataFrame con los datos de producción
-df_production, df_actuators, _ , _ = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
+df_production, df_actuators, _ , _, _, _, _, _ = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2, VelRotArms, VelCinta1, VelCinta2, VelCinta3) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
 
 
 # DataFrame con los datos objetivos de producción
@@ -139,7 +143,7 @@ while True:
                 # Actualización del número de loops tras los que generar una señal de generación de objeto en Python
                 df_production, df_objective = UpdateRateObj(df_production, df_objective)
                 cont_loop_comm = 0
-                df_production, df_actuators, VelRotAxis3, VelRotAxis2 = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
+                df_production, df_actuators, VelRotAxis3, VelRotAxis2, VelRotArms, VelCinta1, VelCinta2, VelCinta3 = UpdateActProd(df_production, df_actuators, VelRotAxis3, VelRotAxis2,VelRotArms, VelCinta1, VelCinta2, VelCinta3) # Obtención inicial del número de loops con los que generar una nueva señal de generación de objeto
                 print("Actualización de los valores de los actuadores realizada")
                 print(df_actuators.head())
                 print("Los valores de producción son : ")
